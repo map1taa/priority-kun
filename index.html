@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>優先順位くん</title>
+<style>
+  :root {
+    --bg: #f5f5f0;
+    --card: #ffffff;
+    --text: #222;
+    --muted: #888;
+    --accent: #ff7a45;
+    --border: #e0ddd5;
+    --danger: #e74c3c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", sans-serif;
+    margin: 0;
+    padding: 24px 16px 64px;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 4px;
+    letter-spacing: 0.02em;
+  }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  form .row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  @media (min-width: 600px) {
+    form .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  }
+  .duration-buttons {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 4px 0;
+  }
+  .duration-btn {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: none;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    color: #fff;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.08);
+    padding: 0;
+  }
+  .duration-btn[data-min="5"]  { background: #ff6b9d; }
+  .duration-btn[data-min="15"] { background: #feca57; }
+  .duration-btn[data-min="30"] { background: #1dd1a1; }
+  .duration-btn[data-min="60"] { background: #5f8cff; }
+  .duration-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 0 rgba(0,0,0,0.12); }
+  .duration-btn.selected {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 3px #fff, 0 0 0 6px currentColor;
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  input[type="text"], input[type="number"], input[type="date"], input[type="url"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 15px;
+    font-family: inherit;
+    background: #fff;
+  }
+  input[type="range"] { width: 100%; }
+  .priority-display {
+    font-weight: 600;
+    color: var(--accent);
+    font-size: 15px;
+    margin-left: 8px;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { opacity: 0.9; }
+  button.ghost {
+    background: transparent;
+    color: var(--muted);
+    padding: 4px 8px;
+    font-size: 13px;
+    font-weight: 400;
+  }
+  button.ghost:hover { color: var(--danger); }
+  .task {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+  }
+  .task.done { opacity: 0.45; }
+  .task.done .title { text-decoration: line-through; }
+  .task input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+  }
+  .task .title { font-size: 16px; font-weight: 500; }
+  .task .title .link {
+    text-decoration: none;
+    margin-left: 6px;
+    font-size: 14px;
+    opacity: 0.7;
+  }
+  .task .title .link:hover { opacity: 1; }
+  .task .meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .meta .tag {
+    display: inline-block;
+    margin-right: 10px;
+  }
+  .meta .overdue { color: var(--danger); font-weight: 600; }
+  .score {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+    min-width: 60px;
+  }
+  .score .value {
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 14px; }
+  .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+  .filter {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+  .filter label { display: flex; align-items: center; gap: 4px; color: var(--text); margin: 0; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>優先順位くん</h1>
+  <p class="subtitle">優先度 × 期限緊急度 ÷ 所要時間 でスコア順に並びます</p>
+
+  <div class="card">
+    <form id="task-form">
+      <div class="row">
+        <div>
+          <label for="title">やること</label>
+          <input type="text" id="title" required placeholder="例: 確定申告の書類を揃える">
+        </div>
+        <div>
+          <label for="link">リンク(任意)</label>
+          <input type="url" id="link" placeholder="https://...">
+        </div>
+        <div>
+          <label>所要時間</label>
+          <div class="duration-buttons" id="duration-buttons">
+            <button type="button" class="duration-btn" data-min="5">5分</button>
+            <button type="button" class="duration-btn" data-min="15">15分</button>
+            <button type="button" class="duration-btn" data-min="30">30分</button>
+            <button type="button" class="duration-btn" data-min="60">1時間</button>
+          </div>
+        </div>
+        <div class="grid">
+          <div>
+            <label for="deadline">期限</label>
+            <input type="date" id="deadline" required>
+          </div>
+          <div>
+            <label for="priority">優先度 <span class="priority-display" id="priority-val">5</span></label>
+            <input type="range" id="priority" min="1" max="10" value="5">
+          </div>
+        </div>
+        <div class="actions">
+          <span></span>
+          <button type="submit">追加</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="filter">
+    <label><input type="checkbox" id="show-done"> 完了したタスクも表示</label>
+  </div>
+
+  <div id="task-list"></div>
+</div>
+
+<script>
+const STORAGE_KEY = 'priority-kun-tasks';
+
+const $ = (id) => document.getElementById(id);
+const form = $('task-form');
+const list = $('task-list');
+const priorityInput = $('priority');
+const priorityVal = $('priority-val');
+const showDoneCheckbox = $('show-done');
+const durationButtons = $('duration-buttons');
+
+let selectedDuration = null;
+
+priorityInput.addEventListener('input', () => {
+  priorityVal.textContent = priorityInput.value;
+});
+
+durationButtons.addEventListener('click', (e) => {
+  const btn = e.target.closest('.duration-btn');
+  if (!btn) return;
+  selectedDuration = parseInt(btn.dataset.min, 10);
+  durationButtons.querySelectorAll('.duration-btn').forEach(b => {
+    b.classList.toggle('selected', b === btn);
+  });
+});
+
+$('deadline').valueAsDate = new Date();
+
+let tasks = loadTasks();
+let showDone = false;
+
+function loadTasks() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTasks() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  } catch (err) {
+    console.warn('localStorage への保存に失敗しました:', err);
+  }
+}
+
+function daysUntil(dateStr) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const deadline = new Date(dateStr);
+  deadline.setHours(0, 0, 0, 0);
+  return Math.round((deadline - today) / 86400000);
+}
+
+function calcScore(task) {
+  const days = daysUntil(task.deadline);
+  const urgency = days <= 0 ? 10 : 10 / (days + 1);
+  return (task.priority * urgency) / Math.max(task.duration / 60, 0.1);
+}
+
+function formatDuration(min) {
+  if (min < 60) return `${min}分`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${h}時間` : `${h}時間${m}分`;
+}
+
+function formatDeadline(dateStr) {
+  const days = daysUntil(dateStr);
+  const d = new Date(dateStr);
+  const label = `${d.getMonth() + 1}/${d.getDate()}`;
+  if (days < 0) return { text: `${label} (${-days}日超過)`, overdue: true };
+  if (days === 0) return { text: `${label} (今日)`, overdue: false };
+  if (days === 1) return { text: `${label} (明日)`, overdue: false };
+  return { text: `${label} (${days}日後)`, overdue: false };
+}
+
+function render() {
+  const visible = tasks
+    .filter(t => showDone || !t.done)
+    .map(t => ({ ...t, score: calcScore(t) }))
+    .sort((a, b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      return b.score - a.score;
+    });
+
+  if (visible.length === 0) {
+    list.innerHTML = '<div class="empty">タスクがありません。上のフォームから追加してください。</div>';
+    return;
+  }
+
+  list.innerHTML = visible.map(t => {
+    const dl = formatDeadline(t.deadline);
+    return `
+      <div class="task ${t.done ? 'done' : ''}" data-id="${t.id}">
+        <input type="checkbox" class="toggle" ${t.done ? 'checked' : ''}>
+        <div>
+          <div class="title">
+            ${escapeHtml(t.title)}
+            ${t.link ? `<a class="link" href="${escapeHtml(t.link)}" target="_blank" rel="noopener noreferrer">🔗</a>` : ''}
+          </div>
+          <div class="meta">
+            <span class="tag">⏱ ${formatDuration(t.duration)}</span>
+            <span class="tag ${dl.overdue ? 'overdue' : ''}">📅 ${dl.text}</span>
+            <span class="tag">⭐ ${t.priority}/10</span>
+          </div>
+        </div>
+        <div class="score">
+          スコア
+          <span class="value">${t.score.toFixed(1)}</span>
+          <button class="ghost delete">削除</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function genId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (!selectedDuration) {
+    alert('所要時間を選択してください');
+    return;
+  }
+  const task = {
+    id: genId(),
+    title: $('title').value.trim(),
+    link: $('link').value.trim(),
+    duration: selectedDuration,
+    deadline: $('deadline').value,
+    priority: parseInt(priorityInput.value, 10),
+    done: false,
+    createdAt: Date.now(),
+  };
+  tasks.push(task);
+  saveTasks();
+  render();
+  form.reset();
+  $('deadline').valueAsDate = new Date();
+  priorityInput.value = 5;
+  priorityVal.textContent = 5;
+  selectedDuration = null;
+  durationButtons.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('selected'));
+  $('title').focus();
+});
+
+list.addEventListener('click', (e) => {
+  const row = e.target.closest('.task');
+  if (!row) return;
+  const id = row.dataset.id;
+  if (e.target.classList.contains('toggle')) {
+    const t = tasks.find(t => t.id === id);
+    t.done = e.target.checked;
+    saveTasks();
+    render();
+  } else if (e.target.classList.contains('delete')) {
+    if (confirm('このタスクを削除しますか?')) {
+      tasks = tasks.filter(t => t.id !== id);
+      saveTasks();
+      render();
+    }
+  }
+});
+
+showDoneCheckbox.addEventListener('change', () => {
+  showDone = showDoneCheckbox.checked;
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
