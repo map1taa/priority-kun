@@ -28,8 +28,9 @@
     font-size: 28px;
     margin: 0 0 4px;
     letter-spacing: 0.02em;
+    text-align: center;
   }
-  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; text-align: center; }
   .card {
     background: var(--card);
     border: 1px solid var(--border);
@@ -50,6 +51,7 @@
     gap: 12px;
     flex-wrap: wrap;
     padding: 4px 0;
+    justify-content: center;
   }
   .duration-btn {
     width: 64px;
@@ -173,6 +175,68 @@
     font-size: 13px;
   }
   .filter label { display: flex; align-items: center; gap: 4px; color: var(--text); margin: 0; cursor: pointer; }
+
+  .fab {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-size: 32px;
+    font-weight: 300;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(255, 122, 69, 0.4);
+    transition: transform 0.15s, box-shadow 0.15s;
+    z-index: 10;
+  }
+  .fab:hover {
+    transform: translateX(-50%) translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 122, 69, 0.5);
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 32px 16px;
+    overflow-y: auto;
+    z-index: 20;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 20px;
+    width: 100%;
+    max-width: 560px;
+    position: relative;
+    margin-top: 40px;
+  }
+  .modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: transparent;
+    border: none;
+    font-size: 20px;
+    color: var(--muted);
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    padding: 0;
+  }
+  .modal-close:hover { background: var(--bg); color: var(--text); }
+  .modal h2 { margin: 0 0 16px; font-size: 18px; }
 </style>
 </head>
 <body>
@@ -180,7 +244,19 @@
   <h1>優先順位くん</h1>
   <p class="subtitle">優先度 × 期限緊急度 ÷ 所要時間 でスコア順に並びます</p>
 
-  <div class="card">
+  <div class="filter">
+    <label><input type="checkbox" id="show-done"> 完了したタスクも表示</label>
+  </div>
+
+  <div id="task-list"></div>
+</div>
+
+<button class="fab" id="fab" aria-label="追加">+</button>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <button class="modal-close" id="modal-close" aria-label="閉じる">✕</button>
+    <h2>タスクを追加</h2>
     <form id="task-form">
       <div class="row">
         <div>
@@ -217,12 +293,6 @@
       </div>
     </form>
   </div>
-
-  <div class="filter">
-    <label><input type="checkbox" id="show-done"> 完了したタスクも表示</label>
-  </div>
-
-  <div id="task-list"></div>
 </div>
 
 <script>
@@ -235,6 +305,26 @@ const priorityInput = $('priority');
 const priorityVal = $('priority-val');
 const showDoneCheckbox = $('show-done');
 const durationButtons = $('duration-buttons');
+const fab = $('fab');
+const modalOverlay = $('modal-overlay');
+const modalClose = $('modal-close');
+
+function openModal() {
+  modalOverlay.classList.add('open');
+  $('title').focus();
+}
+function closeModal() {
+  modalOverlay.classList.remove('open');
+}
+
+fab.addEventListener('click', openModal);
+modalClose.addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', (e) => {
+  if (e.target === modalOverlay) closeModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && modalOverlay.classList.contains('open')) closeModal();
+});
 
 let selectedDuration = null;
 
@@ -296,7 +386,7 @@ function formatDuration(min) {
 function formatDeadline(dateStr) {
   const days = daysUntil(dateStr);
   const d = new Date(dateStr);
-  const label = `${d.getMonth() + 1}/${d.getDate()}`;
+  const label = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
   if (days < 0) return { text: `${label} (${-days}日超過)`, overdue: true };
   if (days === 0) return { text: `${label} (今日)`, overdue: false };
   if (days === 1) return { text: `${label} (明日)`, overdue: false };
@@ -379,7 +469,7 @@ form.addEventListener('submit', (e) => {
   priorityVal.textContent = 5;
   selectedDuration = null;
   durationButtons.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('selected'));
-  $('title').focus();
+  closeModal();
 });
 
 list.addEventListener('click', (e) => {
