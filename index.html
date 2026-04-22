@@ -54,18 +54,18 @@
     justify-content: center;
   }
   .duration-btn {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
+    min-width: 72px;
+    height: 56px;
+    border-radius: 14px;
     border: none;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
     cursor: pointer;
     font-family: inherit;
     color: #fff;
     transition: transform 0.15s, box-shadow 0.15s;
     box-shadow: 0 2px 0 rgba(0,0,0,0.08);
-    padding: 0;
+    padding: 0 16px;
   }
   .duration-btn[data-min="5"]  { background: #ff6b9d; }
   .duration-btn[data-min="15"] { background: #feca57; }
@@ -96,6 +96,12 @@
     font-weight: 600;
     color: var(--accent);
     font-size: 15px;
+    margin-left: 8px;
+  }
+  .deadline-preview {
+    font-weight: 600;
+    color: var(--accent);
+    font-size: 13px;
     margin-left: 8px;
   }
   button {
@@ -155,16 +161,23 @@
   }
   .meta .overdue { color: var(--danger); font-weight: 600; }
   .score {
-    font-size: 11px;
-    color: var(--muted);
-    text-align: right;
-    min-width: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 56px;
   }
-  .score .value {
-    display: block;
+  .score-circle {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 18px;
     font-weight: 700;
-    color: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
   }
   .empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 14px; }
   .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
@@ -278,7 +291,7 @@
         </div>
         <div class="grid">
           <div>
-            <label for="deadline">期限</label>
+            <label for="deadline">期限 <span class="deadline-preview" id="deadline-preview"></span></label>
             <input type="date" id="deadline" required>
           </div>
           <div>
@@ -311,6 +324,7 @@ const modalClose = $('modal-close');
 
 function openModal() {
   modalOverlay.classList.add('open');
+  updateDeadlinePreview();
   $('title').focus();
 }
 function closeModal() {
@@ -331,6 +345,17 @@ let selectedDuration = null;
 priorityInput.addEventListener('input', () => {
   priorityVal.textContent = priorityInput.value;
 });
+
+const deadlineInput = $('deadline');
+const deadlinePreview = $('deadline-preview');
+function updateDeadlinePreview() {
+  const v = deadlineInput.value;
+  if (!v) { deadlinePreview.textContent = ''; return; }
+  const d = new Date(v);
+  deadlinePreview.textContent = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+}
+deadlineInput.addEventListener('input', updateDeadlinePreview);
+deadlineInput.addEventListener('change', updateDeadlinePreview);
 
 durationButtons.addEventListener('click', (e) => {
   const btn = e.target.closest('.duration-btn');
@@ -393,6 +418,13 @@ function formatDeadline(dateStr) {
   return { text: `${label} (${days}日後)`, overdue: false };
 }
 
+function levelGradient(level) {
+  const t = (level - 1) / 9;
+  const hue = 210 - t * 210;
+  const hueEnd = Math.max(hue - 20, 0);
+  return `linear-gradient(135deg, hsl(${hue}, 85%, 65%), hsl(${hueEnd}, 90%, 55%))`;
+}
+
 function render() {
   const visible = tasks
     .filter(t => showDone || !t.done)
@@ -403,12 +435,20 @@ function render() {
     });
 
   if (visible.length === 0) {
-    list.innerHTML = '<div class="empty">タスクがありません。上のフォームから追加してください。</div>';
+    list.innerHTML = '<div class="empty">タスクがありません。右下の + から追加してください。</div>';
     return;
   }
 
+  const rawScores = visible.map(t => t.score);
+  const maxScore = Math.max(...rawScores);
+  const minScore = Math.min(...rawScores);
+  const range = maxScore - minScore;
+
   list.innerHTML = visible.map(t => {
     const dl = formatDeadline(t.deadline);
+    const level = range === 0
+      ? 10
+      : Math.max(1, Math.round(1 + ((t.score - minScore) / range) * 9));
     return `
       <div class="task ${t.done ? 'done' : ''}" data-id="${t.id}">
         <input type="checkbox" class="toggle" ${t.done ? 'checked' : ''}>
@@ -424,8 +464,7 @@ function render() {
           </div>
         </div>
         <div class="score">
-          スコア
-          <span class="value">${t.score.toFixed(1)}</span>
+          <div class="score-circle" data-level="${level}" style="background: ${levelGradient(level)}">${level}</div>
           <button class="ghost delete">削除</button>
         </div>
       </div>
